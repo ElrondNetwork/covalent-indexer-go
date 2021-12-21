@@ -71,7 +71,7 @@ func getPool(args *indexer.ArgsSaveBlockData) *indexer.Pool {
 		Rewards:  make(map[string]data.TransactionHandler),
 		Invalid:  make(map[string]data.TransactionHandler),
 		Receipts: make(map[string]data.TransactionHandler),
-		Logs:     make(map[string]data.LogHandler),
+		Logs:     make([]indexer.LogData, 0),
 	}
 	if args.TransactionsPool != nil {
 		pool = args.TransactionsPool

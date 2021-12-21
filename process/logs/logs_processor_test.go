@@ -11,7 +11,7 @@ import (
 	"github.com/ElrondNetwork/covalent-indexer-go/testscommon/mock"
 	"github.com/ElrondNetwork/elrond-go-core/core"
 	"github.com/ElrondNetwork/elrond-go-core/core/check"
-	"github.com/ElrondNetwork/elrond-go-core/data"
+	"github.com/ElrondNetwork/elrond-go-core/data/indexer"
 	"github.com/ElrondNetwork/elrond-go-core/data/transaction"
 	"github.com/stretchr/testify/require"
 )
@@ -46,8 +46,11 @@ func TestNewLogsProcessor(t *testing.T) {
 func TestLogsProcessor_ProcessLogs_OneNilLog_ExpectZeroProcessedLogs(t *testing.T) {
 	lp, _ := logs.NewLogsProcessor(&mock.PubKeyConverterStub{})
 
-	logsAndEvents := map[string]data.LogHandler{
-		"hash1": nil,
+	logsAndEvents := []indexer.LogData{
+		{
+			TxHash:     "hash1",
+			LogHandler: nil,
+		},
 	}
 
 	ret := lp.ProcessLogs(logsAndEvents)
@@ -62,8 +65,11 @@ func TestLogsProcessor_ProcessLogs_OneLog_NoEvent_ExpectOneProcessedLogsAndZeroE
 		Address: testscommon.GenerateRandomBytes(),
 		Events:  []*transaction.Event{},
 	}
-	logsAndEvents := map[string]data.LogHandler{
-		"hash1": log,
+	logsAndEvents := []indexer.LogData{
+		{
+			TxHash:     "hash1",
+			LogHandler: log,
+		},
 	}
 
 	ret := lp.ProcessLogs(logsAndEvents)
@@ -81,8 +87,11 @@ func TestLogsProcessor_ProcessLogs_OneLog_OneEvent_ExpectOneProcessedLogAndOneEv
 		Events:  []*transaction.Event{event},
 	}
 
-	logsAndEvents := map[string]data.LogHandler{
-		"hash1": log,
+	logsAndEvents := []indexer.LogData{
+		{
+			TxHash:     "hash1",
+			LogHandler: log,
+		},
 	}
 
 	ret := lp.ProcessLogs(logsAndEvents)
@@ -108,10 +117,19 @@ func TestLogsProcessor_ProcessLogs_ThreeLogs_FourEvents_ExpectTwoProcessedLogsAn
 		Events:  []*transaction.Event{event3},
 	}
 
-	logsAndEvents := map[string]data.LogHandler{
-		"hash1": log1,
-		"hash2": nil,
-		"hash3": log2,
+	logsAndEvents := []indexer.LogData{
+		{
+			TxHash:     "hash1",
+			LogHandler: log1,
+		},
+		{
+			TxHash:     "hash2",
+			LogHandler: nil,
+		},
+		{
+			TxHash:     "hash3",
+			LogHandler: log2,
+		},
 	}
 
 	ret := lp.ProcessLogs(logsAndEvents)

@@ -39,7 +39,7 @@ type ReceiptHandler interface {
 
 // LogHandler defines what a log processor shall do
 type LogHandler interface {
-	ProcessLogs(logs map[string]data.LogHandler) []*schema.Log
+	ProcessLogs(logs []indexer.LogData) []*schema.Log
 }
 
 // AccountsHandler defines what an account processor shall do
