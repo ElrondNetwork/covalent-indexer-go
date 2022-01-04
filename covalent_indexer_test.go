@@ -2,7 +2,6 @@ package covalent_test
 
 import (
 	"errors"
-	"net/http"
 	"testing"
 	"time"
 
@@ -20,27 +19,27 @@ import (
 
 func TestNewCovalentDataIndexer(t *testing.T) {
 	tests := []struct {
-		args        func() (processor covalent.DataHandler, server *http.Server)
+		args        func() (processor covalent.DataHandler, server covalent.HttpServer)
 		expectedErr error
 		isNil       bool
 	}{
 		{
-			args: func() (processor covalent.DataHandler, server *http.Server) {
-				return nil, &http.Server{Addr: "localhost:22111"}
+			args: func() (processor covalent.DataHandler, server covalent.HttpServer) {
+				return nil, &mock.HttpServerMock{}
 			},
 			expectedErr: covalent.ErrNilDataHandler,
 			isNil:       true,
 		},
 		{
-			args: func() (processor covalent.DataHandler, server *http.Server) {
+			args: func() (processor covalent.DataHandler, server covalent.HttpServer) {
 				return &mock.DataHandlerStub{}, nil
 			},
 			expectedErr: covalent.ErrNilHTTPServer,
 			isNil:       true,
 		},
 		{
-			args: func() (processor covalent.DataHandler, server *http.Server) {
-				return &mock.DataHandlerStub{}, &http.Server{Addr: "localhost:22112"}
+			args: func() (processor covalent.DataHandler, server covalent.HttpServer) {
+				return &mock.DataHandlerStub{}, &mock.HttpServerMock{}
 			},
 			expectedErr: nil,
 			isNil:       false,
@@ -57,9 +56,7 @@ func TestNewCovalentDataIndexer(t *testing.T) {
 func TestCovalentIndexer_SetWSSender_SetTwoConsecutiveWebSockets_ExpectFirstOneClosed(t *testing.T) {
 	ci, _ := covalent.NewCovalentDataIndexer(
 		&mock.DataHandlerStub{},
-		&http.Server{
-			Addr: "localhost:21119",
-		},
+		&mock.HttpServerMock{},
 	)
 	defer func() {
 		_ = ci.Close()
@@ -101,9 +98,7 @@ func TestCovalentIndexer_SetWSSender_SetTwoConsecutiveWebSockets_ExpectFirstOneC
 func TestCovalentIndexer_SetWSReceiver_SetTwoConsecutiveWebSockets_ExpectFirstOneClosed(t *testing.T) {
 	ci, _ := covalent.NewCovalentDataIndexer(
 		&mock.DataHandlerStub{},
-		&http.Server{
-			Addr: "localhost:21119",
-		},
+		&mock.HttpServerMock{},
 	)
 	defer func() {
 		_ = ci.Close()
@@ -149,10 +144,7 @@ func TestCovalentIndexer_SaveBlock_ErrorProcessingData_ExpectPanic(t *testing.T)
 				return nil, errors.New("local error")
 			},
 		},
-		&http.Server{
-			Addr: "localhost:3333",
-		},
-	)
+		&mock.HttpServerMock{})
 	defer func() {
 		_ = ci.Close()
 	}()
@@ -167,10 +159,7 @@ func TestCovalentIndexer_SaveBlock_ErrorEncodingBlockRes_ExpectPanic(t *testing.
 				return nil, nil
 			},
 		},
-		&http.Server{
-			Addr: "localhost:21119",
-		},
-	)
+		&mock.HttpServerMock{})
 	defer func() {
 		_ = ci.Close()
 	}()
@@ -187,9 +176,7 @@ func TestCovalentIndexer_SaveBlock_ExpectSuccess(t *testing.T) {
 				return blockRes, nil
 			},
 		},
-		&http.Server{
-			Addr: "localhost:21119",
-		})
+		&mock.HttpServerMock{})
 	defer func() {
 		_ = ci.Close()
 	}()
@@ -238,9 +225,7 @@ func TestCovalentIndexer_SaveBlock_WrongAcknowledgedDataFourTimes_ExpectSuccessA
 				return blockRes, nil
 			},
 		},
-		&http.Server{
-			Addr: "localhost:21119",
-		})
+		&mock.HttpServerMock{})
 	defer func() {
 		_ = ci.Close()
 	}()
@@ -293,9 +278,7 @@ func TestCovalentIndexer_SaveBlock_ErrorAcknowledgeData_ReconnectedWSR_ExpectMes
 				return blockRes, nil
 			},
 		},
-		&http.Server{
-			Addr: "localhost:21119",
-		})
+		&mock.HttpServerMock{})
 	defer func() {
 		_ = ci.Close()
 	}()
@@ -355,9 +338,7 @@ func TestCovalentIndexer_SaveBlock_WrongAcknowledgeThreeTimes_ErrorSendingBlockT
 				return blockRes, nil
 			},
 		},
-		&http.Server{
-			Addr: "localhost:21119",
-		})
+		&mock.HttpServerMock{})
 	defer func() {
 		_ = ci.Close()
 	}()
@@ -429,9 +410,7 @@ func generateRandomValidBlockResult() *schema.BlockResult {
 func TestCovalentDataIndexer_UnimplementedFunctions(t *testing.T) {
 	ci, _ := covalent.NewCovalentDataIndexer(
 		&mock.DataHandlerStub{},
-		&http.Server{
-			Addr: "localhost:21119",
-		})
+		&mock.HttpServerMock{})
 	defer func() {
 		_ = ci.Close()
 	}()

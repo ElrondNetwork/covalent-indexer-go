@@ -52,9 +52,9 @@ func generateRandomReceipt() *receipt.Receipt {
 	}
 }
 
-// TODO: fix this test as it fails randomly
 func TestReceiptsProcessor_ProcessReceipts_TwoReceipts_OneNormalTx_ExpectTwoProcessedReceipts(t *testing.T) {
-	rp, _ := receipts.NewReceiptsProcessor(&mock.PubKeyConverterStub{})
+	pubKeyConverter := &mock.PubKeyConverterStub{}
+	rp, _ := receipts.NewReceiptsProcessor(pubKeyConverter)
 
 	receipt1 := generateRandomReceipt()
 	receipt2 := generateRandomReceipt()
@@ -65,26 +65,30 @@ func TestReceiptsProcessor_ProcessReceipts_TwoReceipts_OneNormalTx_ExpectTwoProc
 		"hash3": &transaction.Transaction{},
 	}
 
-	ret := rp.ProcessReceipts(txPool, 123)
+	timeStamp := uint64(123)
+	processedReceipts := rp.ProcessReceipts(txPool, timeStamp)
 
-	require.Len(t, ret, 2)
-
-	requireProcessedReceiptEqual(t, ret[0], receipt1, "hash1", 123, &mock.PubKeyConverterStub{})
-	requireProcessedReceiptEqual(t, ret[1], receipt2, "hash2", 123, &mock.PubKeyConverterStub{})
+	require.Len(t, processedReceipts, 2)
+	requireProcessedReceiptsContains(t, processedReceipts, receipt1, "hash1", timeStamp, pubKeyConverter)
+	requireProcessedReceiptsContains(t, processedReceipts, receipt2, "hash2", timeStamp, pubKeyConverter)
 }
 
-func requireProcessedReceiptEqual(
+func requireProcessedReceiptsContains(
 	t *testing.T,
-	processedReceipt *schema.Receipt,
-	rec *receipt.Receipt,
+	processedReceipts []*schema.Receipt,
+	receipt *receipt.Receipt,
 	receiptHash string,
 	timestamp uint64,
-	pubKeyConverter core.PubkeyConverter) {
+	pubKeyConverter core.PubkeyConverter,
+) {
+	expectedReceipt := &schema.Receipt{
+		Hash:      []byte(receiptHash),
+		Value:     receipt.GetValue().Bytes(),
+		Sender:    utility.EncodePubKey(pubKeyConverter, receipt.GetSndAddr()),
+		Data:      receipt.GetData(),
+		TxHash:    receipt.GetTxHash(),
+		Timestamp: int64(timestamp),
+	}
 
-	require.Equal(t, []byte(receiptHash), processedReceipt.Hash)
-	require.Equal(t, rec.GetValue().Bytes(), processedReceipt.Value)
-	require.Equal(t, utility.EncodePubKey(pubKeyConverter, rec.GetSndAddr()), processedReceipt.Sender)
-	require.Equal(t, rec.GetData(), processedReceipt.Data)
-	require.Equal(t, rec.GetTxHash(), processedReceipt.TxHash)
-	require.Equal(t, int64(timestamp), processedReceipt.Timestamp)
+	require.Contains(t, processedReceipts, expectedReceipt)
 }

@@ -66,10 +66,8 @@ func generateRandomSCR() *smartContractResult.SmartContractResult {
 }
 
 func TestScProcessor_ProcessSCs_TwoSCRs_OneNormalTx_ExpectTwoProcessedSCRs(t *testing.T) {
-	// TODO refactor this test: the processing is done by iterating on a map and the result is a slice that might,
-	// sometimes, have the transactions in another order
-
-	scp, _ := transactions.NewSCResultsProcessor(&mock.PubKeyConverterStub{})
+	pubKeyConverter := &mock.PubKeyConverterStub{}
+	scp, _ := transactions.NewSCResultsProcessor(pubKeyConverter)
 
 	tx1 := generateRandomSCR()
 	tx2 := generateRandomSCR()
@@ -81,36 +79,41 @@ func TestScProcessor_ProcessSCs_TwoSCRs_OneNormalTx_ExpectTwoProcessedSCRs(t *te
 		"hash3": tx3,
 	}
 
-	ret := scp.ProcessSCRs(txPool, 123)
+	timeStamp := uint64(123)
+	processedSCR := scp.ProcessSCRs(txPool, timeStamp)
 
-	require.Len(t, ret, 2)
-	requireProcessedSCREqual(t, ret[0], tx1, "hash1", 123, &mock.PubKeyConverterStub{})
-	requireProcessedSCREqual(t, ret[1], tx2, "hash2", 123, &mock.PubKeyConverterStub{})
+	require.Len(t, processedSCR, 2)
+	requireProcessedSCRContains(t, processedSCR, tx1, "hash1", timeStamp, pubKeyConverter)
+	requireProcessedSCRContains(t, processedSCR, tx2, "hash2", timeStamp, pubKeyConverter)
 }
 
-func requireProcessedSCREqual(
+func requireProcessedSCRContains(
 	t *testing.T,
-	processedSCR *schema.SCResult,
+	processedSCRs []*schema.SCResult,
 	scr *smartContractResult.SmartContractResult,
 	hash string,
 	timeStamp uint64,
-	pubKeyConverter core.PubkeyConverter) {
+	pubKeyConverter core.PubkeyConverter,
+) {
+	expectedSCR := &schema.SCResult{
+		Hash:           []byte(hash),
+		Nonce:          int64(scr.GetNonce()),
+		GasLimit:       int64(scr.GetGasLimit()),
+		GasPrice:       int64(scr.GetGasPrice()),
+		Value:          scr.GetValue().Bytes(),
+		Sender:         utility.EncodePubKey(pubKeyConverter, scr.GetSndAddr()),
+		Receiver:       utility.EncodePubKey(pubKeyConverter, scr.GetRcvAddr()),
+		RelayerAddr:    utility.EncodePubKey(pubKeyConverter, scr.GetRelayerAddr()),
+		RelayedValue:   scr.GetRelayedValue().Bytes(),
+		Code:           scr.GetCode(),
+		Data:           scr.GetData(),
+		PrevTxHash:     scr.GetPrevTxHash(),
+		OriginalTxHash: scr.GetOriginalTxHash(),
+		CallType:       int32(scr.GetCallType()),
+		CodeMetadata:   scr.GetCodeMetadata(),
+		ReturnMessage:  scr.GetReturnMessage(),
+		Timestamp:      int64(timeStamp),
+	}
 
-	require.Equal(t, []byte(hash), processedSCR.Hash)
-	require.Equal(t, int64(scr.GetNonce()), processedSCR.Nonce)
-	require.Equal(t, int64(scr.GetGasLimit()), processedSCR.GasLimit)
-	require.Equal(t, int64(scr.GetGasPrice()), processedSCR.GasPrice)
-	require.Equal(t, scr.GetValue().Bytes(), processedSCR.Value)
-	require.Equal(t, utility.EncodePubKey(pubKeyConverter, scr.GetSndAddr()), processedSCR.Sender)
-	require.Equal(t, utility.EncodePubKey(pubKeyConverter, scr.GetRcvAddr()), processedSCR.Receiver)
-	require.Equal(t, utility.EncodePubKey(pubKeyConverter, scr.GetRelayerAddr()), processedSCR.RelayerAddr)
-	require.Equal(t, scr.GetRelayedValue().Bytes(), processedSCR.RelayedValue)
-	require.Equal(t, scr.GetCode(), processedSCR.Code)
-	require.Equal(t, scr.GetData(), processedSCR.Data)
-	require.Equal(t, scr.GetPrevTxHash(), processedSCR.PrevTxHash)
-	require.Equal(t, scr.GetOriginalTxHash(), processedSCR.OriginalTxHash)
-	require.Equal(t, int32(scr.GetCallType()), processedSCR.CallType)
-	require.Equal(t, scr.GetCodeMetadata(), processedSCR.CodeMetadata)
-	require.Equal(t, scr.GetReturnMessage(), processedSCR.ReturnMessage)
-	require.Equal(t, int64(timeStamp), processedSCR.Timestamp)
+	require.Contains(t, processedSCRs, expectedSCR)
 }

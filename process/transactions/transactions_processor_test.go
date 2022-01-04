@@ -318,7 +318,7 @@ func TestTransactionProcessor_ProcessTransactions_OneInvalidBlock_OneTx_ExpectOn
 	requireProcessedTransactionEqual(t, ret[0], txData1, body.GetMiniBlocks()[0], &mock.PubKeyConverterStub{}, &mock.HasherMock{}, &mock.MarshallerStub{})
 }
 
-func TestTransactionProcessor_ProcessTransactions_ThreeRelevantBlocks_ThreeRelevantTxs_ExpectTwoProcessedTx(t *testing.T) {
+func TestTransactionProcessor_ProcessTransactions_ThreeRelevantBlocks_ThreeRelevantTxs_ExpectThreeProcessedTx(t *testing.T) {
 	t.Parallel()
 
 	hData := generateRandomHeaderData()

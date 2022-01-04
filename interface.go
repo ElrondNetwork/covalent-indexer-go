@@ -27,3 +27,8 @@ type AccountsAdapter interface {
 	LoadAccount(address []byte) (vmcommon.AccountHandler, error)
 	IsInterfaceNil() bool
 }
+
+type HttpServer interface {
+	ListenAndServe() error
+	Close() error
+}
