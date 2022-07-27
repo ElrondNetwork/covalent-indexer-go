@@ -79,7 +79,7 @@ func (txp *transactionProcessor) ProcessTransactions(
 }
 
 func (txp *transactionProcessor) processTxsFromMiniBlock(
-	transactions map[string]data.TransactionHandler,
+	transactions map[string]data.TransactionHandlerWithGasUsedAndFee,
 	miniBlock *erdBlock.MiniBlock,
 	header data.HeaderHandler,
 	blockHash []byte,
@@ -98,7 +98,7 @@ func (txp *transactionProcessor) processTxsFromMiniBlock(
 			continue
 		}
 
-		processedTx := txp.processTransaction(tx, txHash, miniBlockHash, blockHash, miniBlock, header, mbType)
+		processedTx := txp.processTransaction(tx.GetTxHandler(), txHash, miniBlockHash, blockHash, miniBlock, header, mbType)
 		if processedTx != nil {
 			txsInMiniBlock = append(txsInMiniBlock, processedTx)
 		}
@@ -200,8 +200,8 @@ func (txp *transactionProcessor) processRewardTransaction(
 	}
 }
 
-func getRelevantTxPoolBasedOnMBType(miniBlock *erdBlock.MiniBlock, pool *indexer.Pool) map[string]data.TransactionHandler {
-	var ret map[string]data.TransactionHandler
+func getRelevantTxPoolBasedOnMBType(miniBlock *erdBlock.MiniBlock, pool *indexer.Pool) map[string]data.TransactionHandlerWithGasUsedAndFee {
+	var ret map[string]data.TransactionHandlerWithGasUsedAndFee
 
 	switch miniBlock.Type {
 	case block.TxBlock:

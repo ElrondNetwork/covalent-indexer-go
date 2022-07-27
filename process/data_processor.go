@@ -52,7 +52,7 @@ func (dp *dataProcessor) ProcessData(args *indexer.ArgsSaveBlockData) (*schema.B
 	smartContractResults := dp.scHandler.ProcessSCRs(pool.Scrs, args.Header.GetTimeStamp())
 	receipts := dp.receiptHandler.ProcessReceipts(pool.Receipts, args.Header.GetTimeStamp())
 	logs := dp.logHandler.ProcessLogs(pool.Logs)
-	accountUpdates := dp.accountsHandler.ProcessAccounts(transactions, smartContractResults, receipts)
+	accountUpdates := dp.accountsHandler.ProcessAccounts(args.AlteredAccounts, transactions, smartContractResults, receipts)
 
 	return &schema.BlockResult{
 		Block:        block,
@@ -66,11 +66,11 @@ func (dp *dataProcessor) ProcessData(args *indexer.ArgsSaveBlockData) (*schema.B
 
 func getPool(args *indexer.ArgsSaveBlockData) *indexer.Pool {
 	pool := &indexer.Pool{
-		Txs:      make(map[string]data.TransactionHandler),
-		Scrs:     make(map[string]data.TransactionHandler),
-		Rewards:  make(map[string]data.TransactionHandler),
-		Invalid:  make(map[string]data.TransactionHandler),
-		Receipts: make(map[string]data.TransactionHandler),
+		Txs:      make(map[string]data.TransactionHandlerWithGasUsedAndFee),
+		Scrs:     make(map[string]data.TransactionHandlerWithGasUsedAndFee),
+		Rewards:  make(map[string]data.TransactionHandlerWithGasUsedAndFee),
+		Invalid:  make(map[string]data.TransactionHandlerWithGasUsedAndFee),
+		Receipts: make(map[string]data.TransactionHandlerWithGasUsedAndFee),
 		Logs:     make([]*data.LogData, 0),
 	}
 	if args.TransactionsPool != nil {

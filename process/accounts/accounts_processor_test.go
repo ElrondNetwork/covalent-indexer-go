@@ -1,10 +1,10 @@
 package accounts_test
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/ElrondNetwork/covalent-indexer-go"
@@ -14,8 +14,7 @@ import (
 	"github.com/ElrondNetwork/covalent-indexer-go/schema"
 	"github.com/ElrondNetwork/covalent-indexer-go/testscommon"
 	"github.com/ElrondNetwork/covalent-indexer-go/testscommon/mock"
-	"github.com/ElrondNetwork/elrond-go-core/core"
-	vmcommon "github.com/ElrondNetwork/elrond-vm-common"
+	"github.com/ElrondNetwork/elrond-go-core/data/indexer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,30 +22,18 @@ func TestNewAccountsProcessor(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		args        func() (process.ShardCoordinator, covalent.AccountsAdapter, core.PubkeyConverter)
+		args        func() process.ShardCoordinator
 		expectedErr error
 	}{
 		{
-			args: func() (process.ShardCoordinator, covalent.AccountsAdapter, core.PubkeyConverter) {
-				return nil, &mock.AccountsAdapterStub{}, &mock.PubKeyConverterStub{}
+			args: func() process.ShardCoordinator {
+				return nil
 			},
 			expectedErr: covalent.ErrNilShardCoordinator,
 		},
 		{
-			args: func() (process.ShardCoordinator, covalent.AccountsAdapter, core.PubkeyConverter) {
-				return &mock.ShardCoordinatorMock{}, nil, &mock.PubKeyConverterStub{}
-			},
-			expectedErr: covalent.ErrNilAccountsAdapter,
-		},
-		{
-			args: func() (process.ShardCoordinator, covalent.AccountsAdapter, core.PubkeyConverter) {
-				return &mock.ShardCoordinatorMock{}, &mock.AccountsAdapterStub{}, nil
-			},
-			expectedErr: covalent.ErrNilPubKeyConverter,
-		},
-		{
-			args: func() (process.ShardCoordinator, covalent.AccountsAdapter, core.PubkeyConverter) {
-				return &mock.ShardCoordinatorMock{}, &mock.AccountsAdapterStub{}, &mock.PubKeyConverterStub{}
+			args: func() process.ShardCoordinator {
+				return &mock.ShardCoordinatorMock{}
 			},
 			expectedErr: nil,
 		},
@@ -58,74 +45,33 @@ func TestNewAccountsProcessor(t *testing.T) {
 	}
 }
 
-func TestAccountsProcessor_ProcessAccounts_InvalidUserAccountHandler_ExpectZeroAccounts(t *testing.T) {
-	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{},
-		&mock.AccountsAdapterStub{
-			LoadAccountCalled: func(address []byte) (vmcommon.AccountHandler, error) {
-				return nil, nil
-			}},
-		&mock.PubKeyConverterStub{})
-
-	tx := &schema.Transaction{
-		Receiver: testscommon.GenerateRandomBytes(),
-		Sender:   testscommon.GenerateRandomBytes()}
-	ret := ap.ProcessAccounts([]*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
-
-	require.Len(t, ret, 0)
-}
-
-func TestAccountsProcessor_ProcessAccounts_InvalidLoadAccount_ExpectZeroAccounts(t *testing.T) {
-	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{},
-		&mock.AccountsAdapterStub{
-			LoadAccountCalled: func(address []byte) (vmcommon.AccountHandler, error) {
-				return nil, errors.New("load account error")
-			}},
-		&mock.PubKeyConverterStub{})
-
-	tx := &schema.Transaction{
-		Receiver: testscommon.GenerateRandomBytes(),
-		Sender:   testscommon.GenerateRandomBytes()}
-	ret := ap.ProcessAccounts([]*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
-
-	require.Len(t, ret, 0)
-}
-
 func TestAccountsProcessor_ProcessAccounts_NotInSameShard_ExpectZeroAccounts(t *testing.T) {
 	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{SelfID: 4},
-		&mock.AccountsAdapterStub{UserAccountHandler: &mock.UserAccountMock{}},
-		&mock.PubKeyConverterStub{})
+		&mock.ShardCoordinatorMock{SelfID: 4})
 
 	tx := &schema.Transaction{
 		Receiver: testscommon.GenerateRandomBytes(),
 		Sender:   testscommon.GenerateRandomBytes()}
-	ret := ap.ProcessAccounts([]*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
+	ret := ap.ProcessAccounts(map[string]*indexer.AlteredAccount{}, []*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
 
 	require.Len(t, ret, 0)
 }
 
 func TestAccountsProcessor_ProcessAccounts_OneSender_NilReceiver_ExpectOneAccount(t *testing.T) {
 	addresses := generateAddresses(1)
-	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{},
-		&mock.AccountsAdapterStub{UserAccountHandler: &mock.UserAccountMock{}},
-		&mock.PubKeyConverterStub{
-			DecodeCalled: func(humanReadable string) ([]byte, error) {
-				if len(humanReadable) == 0 {
-					return nil, errors.New("nil address")
-				}
-				return make([]byte, 0), nil
-			},
-		})
+	ap, _ := accounts.NewAccountsProcessor(&mock.ShardCoordinatorMock{})
 
 	tx := &schema.Transaction{
 		Sender:   addresses[0],
 		Receiver: nil,
 	}
 
-	ret := ap.ProcessAccounts([]*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
+	alteredAccounts := map[string]*indexer.AlteredAccount{
+		string(addresses[0]): {},
+	}
+
+	alteredAccounts = prepareAlteredAccounts(addresses)
+	ret := ap.ProcessAccounts(alteredAccounts, []*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
 
 	require.Len(t, ret, 1)
 	checkProcessedAccounts(t, addresses, ret)
@@ -133,24 +79,16 @@ func TestAccountsProcessor_ProcessAccounts_OneSender_NilReceiver_ExpectOneAccoun
 
 func TestAccountsProcessor_ProcessAccounts_NilSender_OneReceiver_ExpectOneAccount(t *testing.T) {
 	addresses := generateAddresses(1)
-	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{},
-		&mock.AccountsAdapterStub{UserAccountHandler: &mock.UserAccountMock{}},
-		&mock.PubKeyConverterStub{
-			DecodeCalled: func(humanReadable string) ([]byte, error) {
-				if len(humanReadable) == 0 {
-					return nil, errors.New("nil address")
-				}
-				return make([]byte, 0), nil
-			},
-		})
+	ap, _ := accounts.NewAccountsProcessor(&mock.ShardCoordinatorMock{})
 
 	tx := &schema.Transaction{
 		Sender:   nil,
 		Receiver: addresses[0],
 	}
 
-	ret := ap.ProcessAccounts([]*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
+	alteredAccounts := prepareAlteredAccounts(addresses)
+
+	ret := ap.ProcessAccounts(alteredAccounts, []*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
 
 	require.Len(t, ret, 1)
 	checkProcessedAccounts(t, addresses, ret)
@@ -158,10 +96,7 @@ func TestAccountsProcessor_ProcessAccounts_NilSender_OneReceiver_ExpectOneAccoun
 
 func TestAccountsProcessor_ProcessAccounts_FourAddresses_TwoIdentical_ExpectTwoAccounts(t *testing.T) {
 	addresses := generateAddresses(2)
-	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{},
-		&mock.AccountsAdapterStub{UserAccountHandler: &mock.UserAccountMock{}},
-		&mock.PubKeyConverterStub{})
+	ap, _ := accounts.NewAccountsProcessor(&mock.ShardCoordinatorMock{})
 
 	tx1 := &schema.Transaction{
 		Sender:   addresses[0],
@@ -172,65 +107,33 @@ func TestAccountsProcessor_ProcessAccounts_FourAddresses_TwoIdentical_ExpectTwoA
 		Receiver: addresses[0],
 	}
 
-	ret := ap.ProcessAccounts([]*schema.Transaction{tx1, tx2}, []*schema.SCResult{}, []*schema.Receipt{})
+	alteredAccounts := prepareAlteredAccounts(addresses)
+	ret := ap.ProcessAccounts(alteredAccounts, []*schema.Transaction{tx1, tx2}, []*schema.SCResult{}, []*schema.Receipt{})
 
 	require.Len(t, ret, 2)
 	checkProcessedAccounts(t, addresses, ret)
 }
 
 func TestAccountsProcessor_ProcessAccounts_OneAddress_OneMetaChainShardAddress_ExpectOneAccount(t *testing.T) {
-	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{},
-		&mock.AccountsAdapterStub{UserAccountHandler: &mock.UserAccountMock{}},
-		&mock.PubKeyConverterStub{})
+	ap, _ := accounts.NewAccountsProcessor(&mock.ShardCoordinatorMock{})
 
+	addresses := generateAddresses(1)
 	tx := &schema.Transaction{
-		Receiver: []byte("adr1"),
-		Sender:   utility.MetaChainShardAddress()}
+		Receiver: []byte("adr0"),
+		Sender:   utility.MetaChainShardAddress(),
+	}
 
-	ret := ap.ProcessAccounts([]*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
+	alteredAccounts := prepareAlteredAccounts(addresses)
+	ret := ap.ProcessAccounts(alteredAccounts, []*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
 
 	require.Len(t, ret, 1)
-	require.Equal(t, []byte("adr1"), ret[0].Address)
-	require.Equal(t, big.NewInt(int64(1)).Bytes(), ret[0].Balance)
-	require.Equal(t, int64(1), ret[0].Nonce)
-}
-
-func TestAccountsProcessor_ProcessAccounts_TwoAddresses_OneInvalidBech32_ExpectOneAccount(t *testing.T) {
-	invalidAddress := "adr_invalid"
-	errPubKeyDecode := errors.New("error invalid address")
-
-	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{},
-		&mock.AccountsAdapterStub{UserAccountHandler: &mock.UserAccountMock{}},
-		&mock.PubKeyConverterStub{
-			DecodeCalled: func(humanReadable string) ([]byte, error) {
-				if humanReadable == invalidAddress {
-					return nil, errPubKeyDecode
-				}
-				return make([]byte, 0), nil
-			},
-		})
-
-	tx := &schema.Transaction{
-		Receiver: []byte("adr1"),
-		Sender:   []byte(invalidAddress)}
-
-	ret := ap.ProcessAccounts([]*schema.Transaction{tx}, []*schema.SCResult{}, []*schema.Receipt{})
-
-	require.Len(t, ret, 1)
-	require.Equal(t, []byte("adr1"), ret[0].Address)
-	require.Equal(t, big.NewInt(int64(1)).Bytes(), ret[0].Balance)
-	require.Equal(t, int64(1), ret[0].Nonce)
+	checkProcessedAccounts(t, addresses, ret)
 }
 
 func TestAccountsProcessor_ProcessAccounts_SevenAddresses_ExpectSevenAccounts(t *testing.T) {
 	addresses := generateAddresses(7)
 
-	ap, _ := accounts.NewAccountsProcessor(
-		&mock.ShardCoordinatorMock{},
-		&mock.AccountsAdapterStub{UserAccountHandler: &mock.UserAccountMock{}},
-		&mock.PubKeyConverterStub{})
+	ap, _ := accounts.NewAccountsProcessor(&mock.ShardCoordinatorMock{})
 
 	tx1 := &schema.Transaction{
 		Receiver: addresses[0],
@@ -253,10 +156,32 @@ func TestAccountsProcessor_ProcessAccounts_SevenAddresses_ExpectSevenAccounts(t 
 	}
 	receipts := []*schema.Receipt{receipt}
 
-	ret := ap.ProcessAccounts(txs, scrs, receipts)
+	alteredAccounts := prepareAlteredAccounts(addresses)
+	ret := ap.ProcessAccounts(alteredAccounts, txs, scrs, receipts)
 
 	require.Len(t, ret, 7)
 	checkProcessedAccounts(t, addresses, ret)
+}
+
+func TestAccountsProcessor_ProcessAccounts_EmptyAlteredAccountBalance(t *testing.T) {
+	t.Parallel()
+
+	ap, _ := accounts.NewAccountsProcessor(&mock.ShardCoordinatorMock{})
+
+	alteredAccountsMap := map[string]*indexer.AlteredAccount{
+		"adr0": {
+			Balance: "",
+		},
+	}
+
+	tx1 := &schema.Transaction{
+		Receiver: []byte("adr0"),
+	}
+
+	res := ap.ProcessAccounts(alteredAccountsMap, []*schema.Transaction{tx1}, []*schema.SCResult{}, []*schema.Receipt{})
+
+	require.Len(t, res, 1)
+	require.Equal(t, big.NewInt(0).Bytes(), res[0].Balance)
 }
 
 func generateAddresses(n int) [][]byte {
@@ -269,8 +194,21 @@ func generateAddresses(n int) [][]byte {
 	return addresses
 }
 
-// This function only works if accounts.NewAccountsProcessor is called with
-// &mock.AccountsAdapterStub{UserAccountHandler: &mock.UserAccountMock{}}
+func prepareAlteredAccounts(addresses [][]byte) map[string]*indexer.AlteredAccount {
+	mapToRet := make(map[string]*indexer.AlteredAccount)
+
+	for idx, addr := range addresses {
+		mapToRet[string(addr)] = &indexer.AlteredAccount{
+			Balance: big.NewInt(0).SetInt64(int64(idx)).String(),
+			Nonce:   big.NewInt(0).SetInt64(int64(idx)).Uint64(),
+		}
+	}
+
+	return mapToRet
+}
+
+// This function relies on the order of the addresses according to generateAddresses(). for example, adr1 needs to have
+// a balance of 1 and a nonce of 1
 func checkProcessedAccounts(t *testing.T, addresses [][]byte, processedAcc []*schema.AccountBalanceUpdate) {
 	require.Equal(t, len(addresses), len(processedAcc), "should have the same number of processed accounts as initial addresses")
 
@@ -285,8 +223,11 @@ func checkProcessedAccounts(t *testing.T, addresses [][]byte, processedAcc []*sc
 		require.True(t, exists, fmt.Sprintf("%s not processed successfully", addr))
 	}
 
-	for idx, account := range processedAcc {
-		require.Equal(t, big.NewInt(int64(idx+1)).Bytes(), account.Balance)
-		require.Equal(t, int64(idx+1), account.Nonce)
+	for _, account := range processedAcc {
+		addrIdxStr := strings.Split(string(account.Address), "adr")[1] //adr0 => "0"
+		addrIdxBI, _ := big.NewInt(0).SetString(addrIdxStr, 10)
+		addrIdx := addrIdxBI.Int64()
+		require.Equal(t, big.NewInt(addrIdx).Bytes(), account.Balance)
+		require.Equal(t, addrIdx, account.Nonce)
 	}
 }

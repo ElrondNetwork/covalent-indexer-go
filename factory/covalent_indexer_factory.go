@@ -25,7 +25,6 @@ type ArgsCovalentIndexerFactory struct {
 	RouteSendData        string
 	RouteAcknowledgeData string
 	PubKeyConverter      core.PubkeyConverter
-	Accounts             covalent.AccountsAdapter
 	Hasher               hashing.Hasher
 	Marshaller           marshal.Marshalizer
 	ShardCoordinator     process.ShardCoordinator
@@ -36,9 +35,6 @@ func CreateCovalentIndexer(args *ArgsCovalentIndexerFactory) (covalent.Driver, e
 	if check.IfNil(args.PubKeyConverter) {
 		return nil, covalent.ErrNilPubKeyConverter
 	}
-	if check.IfNil(args.Accounts) {
-		return nil, covalent.ErrNilAccountsAdapter
-	}
 	if check.IfNil(args.Hasher) {
 		return nil, covalent.ErrNilHasher
 	}
@@ -48,7 +44,6 @@ func CreateCovalentIndexer(args *ArgsCovalentIndexerFactory) (covalent.Driver, e
 
 	argsDataProcessor := &factory.ArgsDataProcessor{
 		PubKeyConvertor:  args.PubKeyConverter,
-		Accounts:         args.Accounts,
 		Hasher:           args.Hasher,
 		Marshaller:       args.Marshaller,
 		ShardCoordinator: args.ShardCoordinator,

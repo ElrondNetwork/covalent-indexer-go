@@ -29,12 +29,12 @@ type TransactionHandler interface {
 
 // SCResultsHandler defines what a smart contract processor shall do
 type SCResultsHandler interface {
-	ProcessSCRs(transactions map[string]data.TransactionHandler, timeStamp uint64) []*schema.SCResult
+	ProcessSCRs(transactions map[string]data.TransactionHandlerWithGasUsedAndFee, timeStamp uint64) []*schema.SCResult
 }
 
 // ReceiptHandler defines what a receipt processor shall do
 type ReceiptHandler interface {
-	ProcessReceipts(receipts map[string]data.TransactionHandler, timeStamp uint64) []*schema.Receipt
+	ProcessReceipts(receipts map[string]data.TransactionHandlerWithGasUsedAndFee, timeStamp uint64) []*schema.Receipt
 }
 
 // LogHandler defines what a log processor shall do
@@ -45,6 +45,7 @@ type LogHandler interface {
 // AccountsHandler defines what an account processor shall do
 type AccountsHandler interface {
 	ProcessAccounts(
+		alteredAccounts map[string]*indexer.AlteredAccount,
 		processedTxs []*schema.Transaction,
 		processedSCRs []*schema.SCResult,
 		processedReceipts []*schema.Receipt) []*schema.AccountBalanceUpdate

@@ -24,11 +24,11 @@ func NewSCResultsProcessor(pubKeyConverter core.PubkeyConverter) (*scProcessor, 
 }
 
 // ProcessSCRs converts smart contracts data to a specific structure defined by avro schema
-func (scp *scProcessor) ProcessSCRs(transactions map[string]data.TransactionHandler, timeStamp uint64) []*schema.SCResult {
+func (scp *scProcessor) ProcessSCRs(transactions map[string]data.TransactionHandlerWithGasUsedAndFee, timeStamp uint64) []*schema.SCResult {
 	allSCRs := make([]*schema.SCResult, 0, len(transactions))
 
 	for currTxHash, currTx := range transactions {
-		currSCR := scp.processSCResult(currTx, currTxHash, timeStamp)
+		currSCR := scp.processSCResult(currTx.GetTxHandler(), currTxHash, timeStamp)
 
 		if currSCR != nil {
 			allSCRs = append(allSCRs, currSCR)

@@ -18,7 +18,6 @@ import (
 // in order to create a new data handler instance of type data processor
 type ArgsDataProcessor struct {
 	PubKeyConvertor  core.PubkeyConverter
-	Accounts         covalent.AccountsAdapter
 	Hasher           hashing.Hasher
 	Marshaller       marshal.Marshalizer
 	ShardCoordinator process.ShardCoordinator
@@ -56,7 +55,7 @@ func CreateDataProcessor(args *ArgsDataProcessor) (covalent.DataHandler, error) 
 		return nil, err
 	}
 
-	accountsHandler, err := accounts.NewAccountsProcessor(args.ShardCoordinator, args.Accounts, args.PubKeyConvertor)
+	accountsHandler, err := accounts.NewAccountsProcessor(args.ShardCoordinator)
 	if err != nil {
 		return nil, err
 	}

@@ -26,11 +26,11 @@ func NewReceiptsProcessor(pubKeyConverter core.PubkeyConverter) (*receiptsProces
 }
 
 // ProcessReceipts converts receipts data to a specific structure defined by avro schema
-func (rp *receiptsProcessor) ProcessReceipts(receipts map[string]data.TransactionHandler, timeStamp uint64) []*schema.Receipt {
+func (rp *receiptsProcessor) ProcessReceipts(receipts map[string]data.TransactionHandlerWithGasUsedAndFee, timeStamp uint64) []*schema.Receipt {
 	allReceipts := make([]*schema.Receipt, 0, len(receipts))
 
 	for currHash, currReceipt := range receipts {
-		rec := rp.processReceipt(currReceipt, currHash, timeStamp)
+		rec := rp.processReceipt(currReceipt.GetTxHandler(), currHash, timeStamp)
 		if rec != nil {
 			allReceipts = append(allReceipts, rec)
 		}

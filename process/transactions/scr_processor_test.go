@@ -1,6 +1,8 @@
 package transactions_test
 
 import (
+	"github.com/ElrondNetwork/elrond-go-core/data/indexer"
+	"math/big"
 	"math/rand"
 	"testing"
 
@@ -75,10 +77,10 @@ func TestScProcessor_ProcessSCs_TwoSCRs_OneNormalTx_ExpectTwoProcessedSCRs(t *te
 	tx2 := generateRandomSCR()
 	tx3 := generateRandomTx()
 
-	txPool := map[string]data.TransactionHandler{
-		"hash1": tx1,
-		"hash2": tx2,
-		"hash3": tx3,
+	txPool := map[string]data.TransactionHandlerWithGasUsedAndFee{
+		"hash1": indexer.NewTransactionHandlerWithGasAndFee(tx1, 0, big.NewInt(0)),
+		"hash2": indexer.NewTransactionHandlerWithGasAndFee(tx2, 0, big.NewInt(0)),
+		"hash3": indexer.NewTransactionHandlerWithGasAndFee(tx3, 0, big.NewInt(0)),
 	}
 
 	ret := scp.ProcessSCRs(txPool, 123)
